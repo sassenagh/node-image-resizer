@@ -1,0 +1,69 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
+    privileged: true 
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+      - DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - HOSTNAME_EXTERNAL=localstack
+    ports:
+      - "4566:4566"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh"
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    container_name: node-image-api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+      - localstack
+    environment:
+      - REDIS_HOST=redis
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    container_name: node-image-worker
+    depends_on:
+      - redis
+      - localstack
+    environment:
+      - REDIS_HOST=redis
+
+  # tests:
+  # image: node:18-alpine
+  # command: >
+  # sh -c "
+  # npm init -y &&
+  # npm install mocha supertest express multer ioredis sharp @aws-sdk/client-s3 &&
+  # npx mocha --timeout 10000 tests/app.test.js
+  # "
+  # working_dir: /usr/src/app
+  # volumes:
+  # - .:/usr/src/app
+  # depends_on:
+  # - redis
+  # - localstack
+  # environment:
+  # - REDIS_HOST=redis

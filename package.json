@@ -1,0 +1,37 @@
+{
+  "name": "image-resizer",
+  "version": "1.0.0",
+  "description": "API que redimensiona imágenes usando Node.js y Redis",
+  "main": "api/app.js",
+  "scripts": {
+    "start": "node api/app.js",
+    "worker": "node worker/worker.js",
+    "test": "jest tests/app.test.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ioredis": "^5.3.2",
+    "multer": "^2.1.1",
+    "sharp": "^0.32.1",
+    "@aws-sdk/client-s3": "^3.351.0"
+  },
+  "devDependencies": {
+    "jest": "^30.3.0",
+    "supertest": "^7.2.2"
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sassenagh/node-image-resizer.git"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/sassenagh/node-image-resizer/issues"
+  },
+  "homepage": "https://github.com/sassenagh/node-image-resizer#readme"
+}
