@@ -38,9 +38,17 @@ jobs:
 
       - name: Terraform Apply
         id: apply
-        run: terraform apply -auto-approve
-        continue-on-error: true
+        run: |
+          set -o pipefail
+          terraform apply -auto-approve || echo "apply_failed=true" >> $GITHUB_ENV
 
       - name: Terraform Destroy on Failure
-        if: steps.apply.outcome == 'failure'
+        if: env.apply_failed == 'true'
         run: terraform destroy -auto-approve
+
+      - name: Trigger K8s workflow
+        if: env.apply_failed != 'true'
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: k8s-deploy
