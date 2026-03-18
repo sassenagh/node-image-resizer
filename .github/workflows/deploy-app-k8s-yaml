@@ -1,0 +1,118 @@
+name: App Deploy
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "api/**"
+      - "worker/**"
+      - "docker/**"
+      - "infrastructure/k8s/**"
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_API_REPO: image-resizer-api
+  ECR_WORKER_REPO: image-resizer-worker
+  CLUSTER_NAME: image-resizer-cluster
+  K8S_NAMESPACE: image-resizer-ns
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set IMAGE_TAG
+        id: vars
+        run: echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Detect API changes
+        id: api_changes
+        run: |
+          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E '^api/|^docker/api.Dockerfile'; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+
+      - name: Detect Worker changes
+        id: worker_changes
+        run: |
+          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E '^worker/|^docker/worker.Dockerfile'; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+
+      - name: Check API image
+        id: api_image
+        run: |
+          if aws ecr describe-images \
+            --repository-name $ECR_API_REPO \
+            --image-ids imageTag=$GITHUB_SHA \
+            --region $AWS_REGION >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+
+      - name: Check Worker image
+        id: worker_image
+        run: |
+          if aws ecr describe-images \
+            --repository-name $ECR_WORKER_REPO \
+            --image-ids imageTag=$GITHUB_SHA \
+            --region $AWS_REGION >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+
+      - name: Build & Push API
+        if: steps.api_image.outputs.exists == 'false' || steps.api_changes.outputs.changed == 'true'
+        run: |
+          docker build -t $ECR_API_REPO -f docker/api.Dockerfile .
+          docker tag $ECR_API_REPO:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_API_REPO:$IMAGE_TAG
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_API_REPO:$IMAGE_TAG
+
+      - name: Build & Push Worker
+        if: steps.worker_image.outputs.exists == 'false' || steps.worker_changes.outputs.changed == 'true'
+        run: |
+          docker build -t $ECR_WORKER_REPO -f docker/worker.Dockerfile .
+          docker tag $ECR_WORKER_REPO:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_WORKER_REPO:$IMAGE_TAG
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_WORKER_REPO:$IMAGE_TAG
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
+
+      - name: Apply Kubernetes secrets if not exist
+        run: |
+          for secret in app-secrets; do
+            if ! kubectl get secret $secret -n $K8S_NAMESPACE >/dev/null 2>&1; then
+              echo "Creating secret $secret..."
+              kubectl create secret generic $secret \
+                --namespace=$K8S_NAMESPACE \
+                --from-literal=AWS_REGION=${{ secrets.AWS_REGION }} \
+                --from-literal=AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+                --from-literal=AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            else
+              echo "Secret $secret already exists, skipping..."
+            fi
+          done
+
+      - name: Update deployment images
+        if: steps.api_image.outputs.exists == 'false' || steps.api_changes.outputs.changed == 'true' || steps.worker_image.outputs.exists == 'false' || steps.worker_changes.outputs.changed == 'true'
+        run: |
+          kubectl set image deployment/api api=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_API_REPO:$IMAGE_TAG -n $K8S_NAMESPACE
+          kubectl set image deployment/worker worker=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_WORKER_REPO:$IMAGE_TAG -n $K8S_NAMESPACE
+
+      - name: Deploy manifests
+        run: kubectl apply -f infrastructure/k8s/
