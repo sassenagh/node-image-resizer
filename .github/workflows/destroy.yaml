@@ -2,9 +2,6 @@ name: Terraform Destroy
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "destroy.txt"
 
 permissions:
   contents: read
