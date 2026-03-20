@@ -46,6 +46,7 @@ jobs:
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Detect Worker changes
         id: worker_changes
@@ -54,6 +55,7 @@ jobs:
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Check API image
         id: api_image
@@ -65,6 +67,7 @@ jobs:
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "exists=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Check Worker image
         id: worker_image
@@ -76,6 +79,7 @@ jobs:
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "exists=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build & Push API
         if: steps.api_image.outputs.exists == 'false' || steps.api_changes.outputs.changed == 'true'
