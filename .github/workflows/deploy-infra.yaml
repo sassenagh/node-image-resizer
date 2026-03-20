@@ -33,6 +33,9 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      - name: Terraform Refresh State
+        run: terraform apply -refresh-only -auto-approve
+
       - name: Terraform Plan
         run: terraform plan
 
