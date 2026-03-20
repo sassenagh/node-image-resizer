@@ -1,6 +1,7 @@
 name: Terraform Infra
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - "infrastructure/terraform/**"
