@@ -1,0 +1,32 @@
+name: Infra Cleanup (Force Destroy)
+on: workflow_dispatch
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Force Destroy Everything
+        run: |
+          terraform destroy -auto-approve || true
+          terraform apply -refresh-only -auto-approve || true
+
+      - name: Manual Cleanup S3/KMS/Logs
+        run: |
+          aws s3 rb s3://node-image-resizer-bucket-aws --force || true
+          aws kms delete-alias --alias-name alias/eks/image-resizer-cluster || true
+          aws logs delete-log-group --log-group-name /aws/eks/image-resizer-cluster/cluster || true
