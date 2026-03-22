@@ -98,6 +98,19 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
 
+      - name: Wait for EKS API
+        run: |
+          for i in {1..30}; do
+            if kubectl get nodes >/dev/null 2>&1; then
+              echo "✅ EKS API ready"
+              exit 0
+            fi
+            echo "⏳ Waiting for EKS API... $i/30"
+            sleep 10
+          done
+          echo "❌ EKS API timeout"
+          exit 1
+
       - name: Apply Kubernetes secrets if not exist
         run: |
           for secret in app-secrets; do
