@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: worker:latest
+          image: 882945281705.dkr.ecr.us-east-1.amazonaws.com/image-resizer-worker:latest
 
           env:
             - name: NODE_ENV
