@@ -180,6 +180,7 @@ jobs:
       - name: Deploy ArgoCD App
         run: |
           kubectl apply -f infrastructure/k8s/argocd-namespace.yaml
+          kubectl apply -f infrastructure/k8s/argocd-crds.yaml
           kubectl apply -f infrastructure/k8s/argocd-install.yaml
           kubectl apply -f infrastructure/k8s/argocd-app.yaml
 
