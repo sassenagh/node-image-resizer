@@ -36,6 +36,38 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Get caller identity
+        id: caller
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ARN=$(aws sts get-caller-identity --query Arn --output text)
+
+          echo "Account: $ACCOUNT_ID"
+          echo "Arn: $ARN"
+
+          echo "ACCOUNT_ID=$ACCOUNT_ID" >> $GITHUB_ENV
+          echo "CALLER_ARN=$ARN" >> $GITHUB_ENV
+
+      - name: Grant EKS access to this identity
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ARN=$(aws sts get-caller-identity --query Arn --output text)
+
+          echo "Using ARN: $ARN"
+
+          aws eks create-access-entry \
+            --cluster-name $CLUSTER_NAME \
+            --region $AWS_REGION \
+            --principal-arn $ARN \
+            --type STANDARD || true
+
+          aws eks associate-access-policy \
+            --cluster-name $CLUSTER_NAME \
+            --region $AWS_REGION \
+            --principal-arn $ARN \
+            --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+            --access-scope type=cluster || true
+
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
