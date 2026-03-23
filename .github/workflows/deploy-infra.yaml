@@ -45,10 +45,3 @@ jobs:
       - name: Check Apply Status
         if: failure()
         run: terraform destroy -auto-approve
-
-      - name: Trigger K8s workflow
-        if: success()
-        uses: peter-evans/repository-dispatch@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          event-type: k8s-deploy

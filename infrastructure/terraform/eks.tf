@@ -10,10 +10,10 @@ module "eks" {
 
 fargate_profiles = {
     default = {
-      name = "default"
+      name = "image-resizer"
       selectors = [
         {
-          namespace = "default"
+          namespace = "image-resizer-ns"
         }
       ]
     }
