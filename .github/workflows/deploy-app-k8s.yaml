@@ -98,6 +98,14 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
 
+      - name: Connect to EKS
+        uses: aws-actions/amazon-eks-action@v1
+        id: eks-login
+        with:
+          cluster-name: ${{ env.CLUSTER_NAME }}
+          region: ${{ env.AWS_REGION }}
+          alias: image-resizer-cluster
+
       - name: Wait for EKS API
         run: |
           for i in {1..20}; do
