@@ -50,23 +50,31 @@ jobs:
 
       - name: Grant EKS access to this identity
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          ARN=$(aws sts get-caller-identity --query Arn --output text)
+          echo "Using ARN: $CALLER_ARN"
 
-          echo "Using ARN: $ARN"
-
-          aws eks create-access-entry \
+          if ! aws eks describe-access-entry \
             --cluster-name $CLUSTER_NAME \
             --region $AWS_REGION \
-            --principal-arn $ARN \
-            --type STANDARD || true
+            --principal-arn $CALLER_ARN >/dev/null 2>&1; then
 
-          aws eks associate-access-policy \
-            --cluster-name $CLUSTER_NAME \
-            --region $AWS_REGION \
-            --principal-arn $ARN \
-            --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
-            --access-scope type=cluster || true
+            echo "Creating access entry..."
+
+            aws eks create-access-entry \
+              --cluster-name $CLUSTER_NAME \
+              --region $AWS_REGION \
+              --principal-arn $CALLER_ARN \
+              --type STANDARD
+
+            aws eks associate-access-policy \
+              --cluster-name $CLUSTER_NAME \
+              --region $AWS_REGION \
+              --principal-arn $CALLER_ARN \
+              --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+              --access-scope type=cluster
+
+          else
+            echo "Access entry already exists, skipping"
+          fi
 
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
@@ -166,11 +174,11 @@ jobs:
 
           echo "Namespace + secrets ready"
 
+      - name: Deploy manifests
+        run: kubectl apply -f infrastructure/k8s/
+
       - name: Update deployment images
         if: steps.api_image.outputs.exists == 'false' || steps.api_changes.outputs.changed == 'true' || steps.worker_image.outputs.exists == 'false' || steps.worker_changes.outputs.changed == 'true'
         run: |
           kubectl set image deployment/api api=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_API_REPO:$IMAGE_TAG -n $K8S_NAMESPACE
           kubectl set image deployment/worker worker=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_WORKER_REPO:$IMAGE_TAG -n $K8S_NAMESPACE
-
-      - name: Deploy manifests
-        run: kubectl apply -f infrastructure/k8s/
