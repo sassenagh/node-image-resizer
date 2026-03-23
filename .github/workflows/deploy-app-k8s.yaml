@@ -179,10 +179,8 @@ jobs:
 
       - name: Deploy ArgoCD App
         run: |
-          kubectl apply -f infrastructure/k8s/argocd-namespace.yaml
-          kubectl apply -f infrastructure/k8s/argocd-crds.yaml
-          kubectl apply -f infrastructure/k8s/argocd-install.yaml
-          kubectl apply -f infrastructure/k8s/argocd-app.yaml
+          kubectl create namespace argocd || true
+          kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.9.8/manifests/install.yaml
 
       - name: Update deployment images
         if: steps.api_image.outputs.exists == 'false' || steps.api_changes.outputs.changed == 'true' || steps.worker_image.outputs.exists == 'false' || steps.worker_changes.outputs.changed == 'true'
