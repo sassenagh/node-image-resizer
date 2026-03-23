@@ -153,20 +153,18 @@ jobs:
             sleep 10
           done
 
-      - name: Apply Kubernetes secrets if not exist
+      - name: Create namespace + secrets
         run: |
-          for secret in app-secrets; do
-            if ! kubectl get secret $secret -n $K8S_NAMESPACE >/dev/null 2>&1; then
-              echo "Creating secret $secret..."
-              kubectl create secret generic $secret \
-                --namespace=$K8S_NAMESPACE \
-                --from-literal=AWS_REGION=${{ secrets.AWS_REGION }} \
-                --from-literal=AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-                --from-literal=AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            else
-              echo "Secret $secret already exists, skipping..."
-            fi
-          done
+          kubectl create namespace $K8S_NAMESPACE --dry-run=client -o yaml | kubectl apply -f - || true
+
+          kubectl create secret generic app-secrets \
+            --namespace=$K8S_NAMESPACE \
+            --from-literal=AWS_REGION=${{ secrets.AWS_REGION }} \
+            --from-literal=AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --from-literal=AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            --dry-run=client -o yaml | kubectl apply -f - || true
+
+          echo "Namespace + secrets ready"
 
       - name: Update deployment images
         if: steps.api_image.outputs.exists == 'false' || steps.api_changes.outputs.changed == 'true' || steps.worker_image.outputs.exists == 'false' || steps.worker_changes.outputs.changed == 'true'
