@@ -4,10 +4,6 @@ module "eks" {
 
   name               = var.cluster_name
   kubernetes_version = "1.33"
-
-  cluster_endpoint_public_access  = true
-  cluster_endpoint_private_access = true
-  cluster_endpoint_public_access_cidrs = ["TU_IP/32"]
   
   enable_irsa = true
 
