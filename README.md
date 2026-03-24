@@ -1,6 +1,6 @@
 # Node Image Resizer
 
-![Node.js](https://img.shields.io/badge/Node.js-18-green)
+![Node.js](https://img.shields.io/badge/Node.js-20_Alpine-346da3?style=flat)
 ![Docker](https://img.shields.io/badge/Docker-Containerized-blue)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-Orchestrated-blueviolet)
 ![AWS](https://img.shields.io/badge/AWS-EKS%20%7C%20ECR-orange)
